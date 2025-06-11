@@ -2,30 +2,29 @@ use num_bigint::BigUint;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
-// PeerEntry is an internal struct that holds a peer and its xor distance from a hash value.
+// HeapEntry is an internal struct that holds an id and its xor distance from a hash value.
 //
 // PartialOrd and Ord are crucial for BinaryHeap to know how to order elements.
 // Since BinaryHeap is a max-heap, we'll implement these to order by 'distance' in reverse.
 #[derive(Debug, Clone, Eq, PartialEq)]
-struct PeerEntry {
-    peer: String,
-    // Using BigInt because XOR distance is always non-negative.
+struct HeapEntry {
+    id: String,
     distance: u64,
 }
 
-// Implement Ord for PeerEntry to make it compatible with BinaryHeap.
+// Implement Ord for HeapEntry to make it compatible with BinaryHeap.
 // BinaryHeap is a max-heap, so `cmp` should define what makes an element "greater".
 // We want the *smallest* distances to be considered "greater" in this context
 // so that BinaryHeap keeps the N smallest at the top (effectively acting as a min-heap
 // for our conceptual "smallest distance" goal).
 // This is done by reversing the comparison of distance.
-impl Ord for PeerEntry {
+impl Ord for HeapEntry {
     fn cmp(&self, other: &Self) -> Ordering {
         self.distance.cmp(&other.distance).reverse()
     }
 }
 
-impl PartialOrd for PeerEntry {
+impl PartialOrd for HeapEntry {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.distance.cmp(&other.distance))
     }
@@ -35,20 +34,20 @@ impl PartialOrd for PeerEntry {
 /// and a list of ids (hashes) to select from.
 ///
 /// The hash(name, seed, seq) will be used for ordering the ids according to the XOR distance,
-/// where the closest `n` peers will be selected.
+/// where the closest `n` ids will be selected.
 /// For optimization, a max-heap (Rust's `BinaryHeap` which is a max-heap) is used to maintain
-/// the `n` peers with the smallest XOR distances from the hash value.
-/// If `n` is greater than or equal to the number of peers, all peers will be elected.
+/// the `n` ids with the smallest XOR distances from the hash value.
+/// If `n` is greater than or equal to the number of ids, all ids will be elected.
 ///
 /// # Arguments
 /// * `name` - A string identifier for the selection context.
 /// * `seed` - A 32 byte random seed as a byte slice.
 /// * `seq` - A sequence number (round/epoch).
-/// * `n` - The number of peers to select.
+/// * `n` - The number of ids to select.
 /// * `ids` - A vector of hashed ids to select from (expected to be 32-byte SHA256 hashes encoded as hex strings).
 ///
 /// # Returns
-/// A `Result` containing a `Vec<String>` of selected peer IDs or an error.
+/// A `Result` containing a `Vec<String>` of selected ids or an error.
 pub fn xor_distance_selection(
     name: &str,
     seed: &[u8],
@@ -62,7 +61,6 @@ pub fn xor_distance_selection(
         return Ok(Vec::new());
     }
     if n >= p {
-        // If n is greater than or equal to the number of peers, all peers are "selected".
         return Ok(ids.to_vec());
     }
 
@@ -72,7 +70,7 @@ pub fn xor_distance_selection(
     // We use Rust's BinaryHeap is a max-heap to keep the 'n' smallest elements,
     // if the heap size exceeds 'n' we check the largest element against the new element.
     // If the new element is smaller, we pop the largest (furthest) element and push the new one.
-    // This way, we maintain a heap of the 'n' closest peers.
+    // This way, we maintain a heap of the 'n' closest ids.
     let mut max_heap = BinaryHeap::with_capacity(n);
 
     for id in ids {
@@ -81,8 +79,8 @@ pub fn xor_distance_selection(
         let id_value = BigUint::from_bytes_be(id_bytes);
         let distance_val = &hash_value ^ &id_value;
 
-        let entry = PeerEntry {
-            peer: id.clone(),
+        let entry = HeapEntry {
+            id: id.clone(),
             distance: distance_val.to_u64_digits().first().cloned().unwrap_or(0),
         };
 
@@ -104,7 +102,7 @@ pub fn xor_distance_selection(
     let selected = max_heap
         .into_sorted_vec()
         .into_iter()
-        .map(|entry| entry.peer)
+        .map(|entry| entry.id)
         .collect::<Vec<String>>();
 
     Ok(selected)
