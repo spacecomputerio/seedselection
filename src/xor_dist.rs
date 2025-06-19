@@ -180,13 +180,6 @@ mod tests {
         let n = 3;
         let peerset = get_peerset_from_literals(&[0, 1, 2, 3, 4]);
 
-        // // TODO: fix code and uncomment the expected values
-        // let expected = vec![
-        //     PEER_IDS_TEST_LITERALS[3].to_string(),
-        //     PEER_IDS_TEST_LITERALS[1].to_string(),
-        //     PEER_IDS_TEST_LITERALS[2].to_string(),
-        // ];
-
         let expected = vec![
             PEER_IDS_TEST_LITERALS[3].to_string(),
             PEER_IDS_TEST_LITERALS[4].to_string(),
@@ -204,13 +197,6 @@ mod tests {
         let seq = 1;
         let n = 3;
         let peerset = get_peerset_from_literals(&[0, 1, 2, 3, 4]);
-
-        // // TODO: fix code and uncomment the expected values
-        // let expected = vec![
-        //     PEER_IDS_TEST_LITERALS[3].to_string(),
-        //     PEER_IDS_TEST_LITERALS[0].to_string(),
-        //     PEER_IDS_TEST_LITERALS[1].to_string(),
-        // ];
 
         let expected = vec![
             PEER_IDS_TEST_LITERALS[3].to_string(),
@@ -264,12 +250,6 @@ mod tests {
             .iter()
             .map(|&s| s.to_string())
             .collect();
-
-        // // TODO: fix code and uncomment the expected values
-        // let expected = vec![
-        //     PEER_IDS_32BYTE_LITERAL_CASE[2].to_string(), // e42bbf85... (Placeholder)
-        //     PEER_IDS_32BYTE_LITERAL_CASE[0].to_string(), // 698750a0... (Placeholder)
-        // ];
 
         let expected = vec![
             PEER_IDS_32BYTE_LITERAL_CASE[2].to_string(), // e42bbf85... (Placeholder)
