@@ -1,3 +1,5 @@
+// use digest::Digest;
+use digest::Digest;
 use num_bigint::BigUint;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
@@ -8,7 +10,7 @@ use std::collections::BinaryHeap;
 // Since BinaryHeap is a max-heap, we'll implement these to order by 'distance' in reverse.
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct HeapEntry {
-    id: String,
+    id: Vec<u8>,
     distance: u64,
 }
 
@@ -24,13 +26,15 @@ impl Ord for HeapEntry {
     }
 }
 
+/// Implement PartialOrd for HeapEntry to allow comparisons between entries based on their distance.
+/// It does not need to reverse the comparison since Ord already does that.
 impl PartialOrd for HeapEntry {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.distance.cmp(&other.distance))
     }
 }
 
-/// XorDistanceSelection takes a name, (random) seed, sequence number, number of ids to select (n),
+/// xor_distance_selection takes a name, (random) seed, sequence number, number of ids to select (n),
 /// and a list of ids (hashes) to select from.
 ///
 /// The hash(name, seed, seq) will be used for ordering the ids according to the XOR distance,
@@ -45,26 +49,42 @@ impl PartialOrd for HeapEntry {
 /// * `seq` - A sequence number (round/epoch).
 /// * `n` - The number of ids to select.
 /// * `ids` - A vector of hashed ids to select from (expected to be 32-byte SHA256 hashes encoded as hex strings).
+/// * `hasher`: Closure returning a new hasher implementing [`digest::Digest`]
 ///
 /// # Returns
-/// A `Result` containing a `Vec<String>` of selected ids or an error.
-pub fn xor_distance_selection(
+/// `Some(Vec<Vec<u8>>)` of selected IDs, or `None` if `ids` is empty.
+///
+/// # Security
+/// The selection is only as unpredictable as the seed. Use a secure, random seed for cryptographic applications.
+///
+/// # Example
+/// ```rust
+/// use sha2::{Sha256, Digest};
+///
+/// let ids = vec![b"peer1".to_vec(), b"peer2".to_vec()];
+/// let selected = seedselection::xor_dist::xor_distance_selection("ctx", b"seed", 0, 1, &ids, Sha256::new).unwrap();
+/// ```
+pub fn xor_distance_selection<T, D>(
     name: &str,
     seed: &[u8],
     seq: u64,
     n: usize,
-    ids: &[String],
-) -> Result<Vec<String>, String> {
+    ids: &[T],
+    mut hasher: impl FnMut() -> D,
+) -> Option<Vec<Vec<u8>>>
+where
+    T: AsRef<[u8]>,
+    D: Digest,
+{
     let p = ids.len();
 
     if p == 0 {
-        return Ok(Vec::new());
+        return None;
     }
     if n >= p {
-        return Ok(ids.to_vec());
+        return Some(ids.iter().map(|id| id.as_ref().to_vec()).collect());
     }
-
-    let hash_bytes = crate::hash::compute_hash(name, seed, seq);
+    let hash_bytes = crate::hash::compute_hash(name, seed, seq, &mut hasher);
     let hash_value = BigUint::from_bytes_be(&hash_bytes);
 
     // We use Rust's BinaryHeap is a max-heap to keep the 'n' smallest elements,
@@ -74,13 +94,13 @@ pub fn xor_distance_selection(
     let mut max_heap = BinaryHeap::with_capacity(n);
 
     for id in ids {
-        let id_bytes = id.as_bytes();
+        let id_bytes = id.as_ref();
 
         let id_value = BigUint::from_bytes_be(id_bytes);
         let distance_val = &hash_value ^ &id_value;
 
         let entry = HeapEntry {
-            id: id.clone(),
+            id: id_bytes.to_vec(),
             distance: distance_val.to_u64_digits().first().cloned().unwrap_or(0),
         };
 
@@ -103,14 +123,15 @@ pub fn xor_distance_selection(
         .into_sorted_vec()
         .into_iter()
         .map(|entry| entry.id)
-        .collect::<Vec<String>>();
+        .collect::<Vec<Vec<u8>>>();
 
-    Ok(selected)
+    Some(selected)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sha2::{Digest, Sha256};
 
     static PEER_IDS_TEST_LITERALS: [&str; 10] = [
         "peer1", "peer2", "peer3", "peer4", "peer5", "peer6", "peer7", "peer8", "peer9", "peer10",
@@ -142,12 +163,12 @@ mod tests {
         let peerset = get_peerset_from_literals(&[0, 1, 2, 3, 4]);
 
         let expected = vec![
-            PEER_IDS_TEST_LITERALS[4].to_string(), // peer5
-            PEER_IDS_TEST_LITERALS[3].to_string(), // peer4
-            PEER_IDS_TEST_LITERALS[0].to_string(), // peer1
+            PEER_IDS_TEST_LITERALS[4].as_bytes(), // peer5
+            PEER_IDS_TEST_LITERALS[3].as_bytes(), // peer4
+            PEER_IDS_TEST_LITERALS[0].as_bytes(), // peer1
         ];
 
-        let actual = xor_distance_selection(name, seed, seq, n, &peerset).unwrap();
+        let actual = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
         assert_eq!(actual, expected, "Selection mismatch");
     }
 
@@ -163,12 +184,12 @@ mod tests {
 
         // Expected should be the same as the previous test because selection is order-agnostic
         let expected = vec![
-            PEER_IDS_TEST_LITERALS[4].to_string(),
-            PEER_IDS_TEST_LITERALS[3].to_string(),
-            PEER_IDS_TEST_LITERALS[0].to_string(),
+            PEER_IDS_TEST_LITERALS[4].as_bytes(),
+            PEER_IDS_TEST_LITERALS[3].as_bytes(),
+            PEER_IDS_TEST_LITERALS[0].as_bytes(),
         ];
 
-        let actual = xor_distance_selection(name, seed, seq, n, &peerset).unwrap();
+        let actual = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
         assert_eq!(actual, expected, "Selection mismatch");
     }
 
@@ -181,12 +202,12 @@ mod tests {
         let peerset = get_peerset_from_literals(&[0, 1, 2, 3, 4]);
 
         let expected = vec![
-            PEER_IDS_TEST_LITERALS[3].to_string(),
-            PEER_IDS_TEST_LITERALS[4].to_string(),
-            PEER_IDS_TEST_LITERALS[1].to_string(),
+            PEER_IDS_TEST_LITERALS[3].as_bytes(),
+            PEER_IDS_TEST_LITERALS[4].as_bytes(),
+            PEER_IDS_TEST_LITERALS[1].as_bytes(),
         ];
 
-        let actual = xor_distance_selection(name, seed, seq, n, &peerset).unwrap();
+        let actual = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
         assert_eq!(actual, expected, "Selection mismatch");
     }
 
@@ -199,12 +220,12 @@ mod tests {
         let peerset = get_peerset_from_literals(&[0, 1, 2, 3, 4]);
 
         let expected = vec![
-            PEER_IDS_TEST_LITERALS[3].to_string(),
-            PEER_IDS_TEST_LITERALS[4].to_string(),
-            PEER_IDS_TEST_LITERALS[0].to_string(),
+            PEER_IDS_TEST_LITERALS[3].as_bytes(),
+            PEER_IDS_TEST_LITERALS[4].as_bytes(),
+            PEER_IDS_TEST_LITERALS[0].as_bytes(),
         ];
 
-        let actual = xor_distance_selection(name, seed, seq, n, &peerset).unwrap();
+        let actual = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
         assert_eq!(actual, expected, "Selection mismatch for specific RNG name");
     }
 
@@ -217,12 +238,12 @@ mod tests {
         let peerset = get_peerset_from_literals(&[0, 1, 2]); // peer1 to peer3
 
         let expected = vec![
-            PEER_IDS_TEST_LITERALS[0].to_string(),
-            PEER_IDS_TEST_LITERALS[1].to_string(),
-            PEER_IDS_TEST_LITERALS[2].to_string(),
+            PEER_IDS_TEST_LITERALS[0].as_bytes(),
+            PEER_IDS_TEST_LITERALS[1].as_bytes(),
+            PEER_IDS_TEST_LITERALS[2].as_bytes(),
         ];
 
-        let actual = xor_distance_selection(name, seed, seq, n, &peerset).unwrap();
+        let actual = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
         assert_eq!(actual, expected, "Selection mismatch");
     }
 
@@ -232,11 +253,11 @@ mod tests {
         let seed = b"test-seed";
         let seq = 1;
         let n = 0; // Requesting 0 leaders is technically possible
-        let peerset = Vec::new();
+        let peerset: Vec<String> = Vec::new();
 
-        let expected: Vec<String> = Vec::new(); // Go's nil translates to empty Vec
+        let expected: Option<Vec<Vec<u8>>> = None; // Go's nil translates to empty Vec
 
-        let actual = xor_distance_selection(name, seed, seq, n, &peerset).unwrap();
+        let actual = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new);
         assert_eq!(actual, expected, "Selection mismatch for no nodes");
     }
 
@@ -252,11 +273,11 @@ mod tests {
             .collect();
 
         let expected = vec![
-            PEER_IDS_32BYTE_LITERAL_CASE[2].to_string(), // e42bbf85... (Placeholder)
-            PEER_IDS_32BYTE_LITERAL_CASE[3].to_string(), // a7a0243e... (Placeholder)
+            PEER_IDS_32BYTE_LITERAL_CASE[2].as_bytes(), // e42bbf85... (Placeholder)
+            PEER_IDS_32BYTE_LITERAL_CASE[3].as_bytes(), // a7a0243e... (Placeholder)
         ];
 
-        let actual = xor_distance_selection(name, seed, seq, n, &peerset).unwrap();
+        let actual = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
         assert_eq!(actual, expected, "Selection mismatch");
     }
 }
