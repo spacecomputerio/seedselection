@@ -6,10 +6,16 @@
 
 ## Overview
 
-This crate provides a simple and effective ways to implement deterministic selection in distributed systems. It is designed to be easy to use and integrate into existing networks, ensuring that all peers come up with the same selection (for the same input) without introducing network calls or the need for a central authority.
-The focus is on random seeds to provide fair selection and good distribution.
+This crate provides a simple and effective ways to implement deterministic selection in distributed systems. 
 
-**BONUS** We encourage users to use SpaceComputer's [orbitport](https://docs.spacecomputer.io/orbitport) as a source of randomness.
+The focus is on random seeds to provide fair selection and good distribution. The selection process is deterministic, meaning that the same input will always produce the same output. This is useful for ensuring that all peers in a distributed system agree on the selected items, without introducing network calls or the need for a central authority.
+
+A max-heap is used to efficiently select the top `n` items based on a distance function (xor distance) applied to the each of items against the hash of seed+seq+name.
+
+### Security Considerations
+
+- The selection depends on the entropy of the seed, so it is crucial to use a secure and unpredictable seed to ensure fairness and security. We encourage users to use SpaceComputer's [orbitport](https://docs.spacecomputer.io/orbitport) as a source of randomness.
+- The hash function is pluggable, it should be cryptographically secure to prevent manipulation of the selection process.
 
 ## Usage
 
@@ -24,7 +30,7 @@ Then, you can use it in your code:
 
 ```rust
 use seedselection::xor_dist;
-    
+use sha2::Sha256;
         
 let name = "test";
 let seed = b"test-seed";
@@ -34,9 +40,11 @@ let ids = vec![
     // ... list of peer IDs
 ];
 
-let selected = xor_dist::xor_distance_selection(name, seed, seq, n, &ids).unwrap();
+let selected = xor_dist::xor_distance_selection(name, seed, seq, n, &ids, Sha256::new).unwrap();
 println!("Selected peers: {:?}", selected);
 ```
+
+**NOTE:** There is an equivalent Go implementation: [spacecomputerio/seedselection-go](https://github.com/spacecomputerio/seedselection-go).
 
 ## License
 
