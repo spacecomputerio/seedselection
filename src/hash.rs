@@ -16,13 +16,12 @@ use digest::Digest;
 /// # Example
 /// ```rust
 /// use seedselection::hash::compute_hash;
-/// use sha2::Sha256;
+/// use sha2::{Sha256, Digest};
 /// let hash = compute_hash("ctx", b"seed", 1, Sha256::new);
 /// ```
-pub fn compute_hash<D, F>(name: &str, seed: &[u8], seq: u64, mut hasher: F) -> Vec<u8>
+pub fn compute_hash<D>(name: &str, seed: &[u8], seq: u64, mut hasher: impl FnMut() -> D) -> Vec<u8>
 where
     D: Digest,
-    F: FnMut() -> D,
 {
     let mut h = hasher();
     h.update(name.as_bytes());
@@ -36,7 +35,7 @@ where
 mod tests {
     use super::*;
 
-    use sha2::Sha256;
+    use sha2::{Digest, Sha256};
 
     #[test]
     fn test_compute_hash_happy_path() {

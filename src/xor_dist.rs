@@ -1,6 +1,6 @@
+// use digest::Digest;
 use digest::Digest;
 use num_bigint::BigUint;
-use sha2::Sha256;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
@@ -59,23 +59,22 @@ impl PartialOrd for HeapEntry {
 ///
 /// # Example
 /// ```rust
-/// use sha2::Sha256;
+/// use sha2::{Sha256, Digest};
 ///
 /// let ids = vec![b"peer1".to_vec(), b"peer2".to_vec()];
-/// let selected = seedselection::xor_dist::xor_distance_selection_with_hash("ctx", b"seed", 0, 1, &ids, Sha256::new).unwrap();
+/// let selected = seedselection::xor_dist::xor_distance_selection("ctx", b"seed", 0, 1, &ids, Sha256::new).unwrap();
 /// ```
-pub fn xor_distance_selection<T, D, F>(
+pub fn xor_distance_selection<T, D>(
     name: &str,
     seed: &[u8],
     seq: u64,
     n: usize,
     ids: &[T],
-    hasher: F,
+    mut hasher: impl FnMut() -> D,
 ) -> Option<Vec<Vec<u8>>>
 where
     T: AsRef<[u8]>,
     D: Digest,
-    F: FnMut() -> D,
 {
     let p = ids.len();
 
@@ -85,8 +84,7 @@ where
     if n >= p {
         return Some(ids.iter().map(|id| id.as_ref().to_vec()).collect());
     }
-
-    let hash_bytes = crate::hash::compute_hash(name, seed, seq, hasher);
+    let hash_bytes = crate::hash::compute_hash(name, seed, seq, &mut hasher);
     let hash_value = BigUint::from_bytes_be(&hash_bytes);
 
     // We use Rust's BinaryHeap is a max-heap to keep the 'n' smallest elements,
@@ -130,24 +128,10 @@ where
     Some(selected)
 }
 
-/// xor_distance_selection_sha256 is a convenience function that uses SHA256 as the hashing algorithm.
-/// It wraps the `xor_distance_selection` function with a specific hasher (SHA256).
-pub fn xor_distance_selection_sha256<T>(
-    name: &str,
-    seed: &[u8],
-    seq: u64,
-    n: usize,
-    ids: &[T],
-) -> Option<Vec<Vec<u8>>>
-where
-    T: AsRef<[u8]>,
-{
-    xor_distance_selection(name, seed, seq, n, ids, Sha256::new)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sha2::{Digest, Sha256};
 
     static PEER_IDS_TEST_LITERALS: [&str; 10] = [
         "peer1", "peer2", "peer3", "peer4", "peer5", "peer6", "peer7", "peer8", "peer9", "peer10",
@@ -184,7 +168,7 @@ mod tests {
             PEER_IDS_TEST_LITERALS[0].as_bytes(), // peer1
         ];
 
-        let actual = xor_distance_selection_sha256(name, seed, seq, n, &peerset).unwrap();
+        let actual = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
         assert_eq!(actual, expected, "Selection mismatch");
     }
 
@@ -205,7 +189,7 @@ mod tests {
             PEER_IDS_TEST_LITERALS[0].as_bytes(),
         ];
 
-        let actual = xor_distance_selection_sha256(name, seed, seq, n, &peerset).unwrap();
+        let actual = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
         assert_eq!(actual, expected, "Selection mismatch");
     }
 
@@ -223,7 +207,7 @@ mod tests {
             PEER_IDS_TEST_LITERALS[1].as_bytes(),
         ];
 
-        let actual = xor_distance_selection_sha256(name, seed, seq, n, &peerset).unwrap();
+        let actual = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
         assert_eq!(actual, expected, "Selection mismatch");
     }
 
@@ -241,7 +225,7 @@ mod tests {
             PEER_IDS_TEST_LITERALS[0].as_bytes(),
         ];
 
-        let actual = xor_distance_selection_sha256(name, seed, seq, n, &peerset).unwrap();
+        let actual = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
         assert_eq!(actual, expected, "Selection mismatch for specific RNG name");
     }
 
@@ -259,7 +243,7 @@ mod tests {
             PEER_IDS_TEST_LITERALS[2].as_bytes(),
         ];
 
-        let actual = xor_distance_selection_sha256(name, seed, seq, n, &peerset).unwrap();
+        let actual = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
         assert_eq!(actual, expected, "Selection mismatch");
     }
 
@@ -273,7 +257,7 @@ mod tests {
 
         let expected: Option<Vec<Vec<u8>>> = None; // Go's nil translates to empty Vec
 
-        let actual = xor_distance_selection_sha256(name, seed, seq, n, &peerset);
+        let actual = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new);
         assert_eq!(actual, expected, "Selection mismatch for no nodes");
     }
 
@@ -293,7 +277,7 @@ mod tests {
             PEER_IDS_32BYTE_LITERAL_CASE[3].as_bytes(), // a7a0243e... (Placeholder)
         ];
 
-        let actual = xor_distance_selection_sha256(name, seed, seq, n, &peerset).unwrap();
+        let actual = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
         assert_eq!(actual, expected, "Selection mismatch");
     }
 }

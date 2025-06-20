@@ -18,24 +18,24 @@
 //!
 //! ## Usage
 //! use the `xor_distance_selection` function to select a subset of peers based on their IDs, a context name, a random seed, and a sequence number.
-//! //! ## Example
 //! ```rust
-//! use seedselection::xor_distance_selection;
-//! use sha2::Sha256;
-//! //! let name = "example_context";
-//! //! let seed = b"random_seed";
-//! //! let seq = 1;
-//! //! let n = 5;
-//! //! let peerset = vec![
-//! //!     b"peer1",
-//! //!     b"peer2",
-//! //!     b"peer3",
-//! //!     b"peer4",
-//! //!     b"peer5",
-//! //! ];
-//! //! let selected_peers = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
-//! //! assert_eq!(selected_peers.len(), n);
-//! //! ```
+//! use seedselection::xor_dist::xor_distance_selection;
+//! use sha2::{Digest,Sha256};
+//!
+//! let name = "example_context";
+//! let seed = b"random_seed";
+//! let seq = 1;
+//! let n = 5;
+//! let peerset = vec![
+//!     b"peer1",
+//!     b"peer2",
+//!     b"peer3",
+//!     b"peer4",
+//!     b"peer5",
+//! ];
+//! let selected_peers = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
+//! assert_eq!(selected_peers.len(), n);
+//! ```
 
 pub mod hash;
 pub mod xor_dist;
