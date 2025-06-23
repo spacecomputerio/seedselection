@@ -1,5 +1,5 @@
 test:
-	@cargo test -- --skip test_e2e
+	@cargo test
 
 fmt:
 	@cargo fmt
@@ -27,8 +27,6 @@ help:
 	@echo "  lint            Run linters"
 	@echo "  build           Build the project"
 	@echo "  help            Show this help message"
-	@echo ""
-	@echo "Variables:"
 	@echo ""
 
 default: help

@@ -1,6 +1,6 @@
 # seedselection
 
-**WARNING: This project is experimental and work-in-progress, DO NOT USE IN PRODUCTION.**
+**WARNING: This project is experimental and work-in-progress, use at your own risk!**
 
 ![Build & Test (Core)](https://github.com/spacecomputerio/seedselection/actions/workflows/build_test.yml/badge.svg?branch=main)
 

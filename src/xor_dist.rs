@@ -1,4 +1,5 @@
-// use digest::Digest;
+//! This module implements XOR distance selection.
+
 use digest::Digest;
 use num_bigint::BigUint;
 use std::cmp::Ordering;
