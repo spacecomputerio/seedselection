@@ -33,7 +33,7 @@
 //!     b"peer4",
 //!     b"peer5",
 //! ];
-//! let selected_peers = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new).unwrap();
+//! let selected_peers = xor_distance_selection(name, seed, seq, n, &peerset, Sha256::new, None).unwrap();
 //! assert_eq!(selected_peers.len(), n);
 //! ```
 
