@@ -105,7 +105,7 @@ where
         if let Some(weights) = weights {
             // If weights are provided, we apply them to the distance.
             // This assumes that the weights are aligned with the ids.
-            if let Some(&weight) = weights.get(i) {
+            if let Some(&weight) = weights.get(i).filter(|&w| *w > 0) {
                 // Apply weight to distance
                 distance /= weight;
             }
@@ -321,7 +321,7 @@ mod tests {
             n,
             &peerset,
             Sha256::new,
-            Some(&[1, 10, 10, 2, 100, 1]),
+            Some(&[0, 10, 10, 2, 100, 1]),
         )
         .unwrap();
         assert_eq!(actual, expected, "Selection mismatch");
